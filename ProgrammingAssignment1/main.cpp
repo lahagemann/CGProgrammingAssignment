@@ -38,7 +38,7 @@ float g_ZNear = 1.0f;
 
 // Field of View
 float g_FOVX = 0.0f;
-float g_FOVY = 0.0f;
+float g_FOVY = 40.0f;
 
 // Material Color
 //float g_MatAmbient[] = { 0.5f, 0.0f, 0.0f, 1.0f };
@@ -56,22 +56,15 @@ Shading g_CurrentShading = SHADING_SOLID;
 
 char* filename;
 
+// other variables
+int width = 1280;
+int height = 720;
 
-// This example displays one of the following shapes
-typedef enum { SHAPE_TEAPOT = 1, SHAPE_TORUS, SHAPE_CONE } Shape;
-#define NUM_SHAPES 3
-Shape g_CurrentShape = SHAPE_TORUS;
-// Shapes scale
+
 float g_Zoom = 1.0f;
-// Shape orientation (stored as a quaternion)
-float g_Rotation[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-// Auto rotate
-int g_AutoRotate = 0;
-int g_RotateTime = 0;
-float g_RotateStart[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 // Shapes material
-float g_MatAmbient[] = { 0.5f, 0.0f, 0.0f, 1.0f };
-float g_MatDiffuse[] = { 1.0f, 1.0f, 0.0f, 1.0f };
+float g_MatAmbient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+float g_MatDiffuse[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 // Light parameter
 float g_LightMultiplier = 1.0f;
 float g_LightDirection[] = { -0.57735f, -0.57735f, -0.57735f };
@@ -92,12 +85,18 @@ int GetTimeMs()
 void Display(void)
 {
 	float v[4]; // will be used to set light parameters
-	float mat[4 * 4]; // rotation matrix
 
 	// Clear frame buffer
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	// viewport and frustum setup
+	glViewport(0, 0, width, height);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(g_FOVY, (double)width / height, g_ZNear, g_ZFar);
+
+	// camera setup
 	if (g_LookAtObject)
 	{
 		glMatrixMode(GL_MODELVIEW);
@@ -113,11 +112,17 @@ void Display(void)
 			g_CamPosition[2] + g_CamTranslation[2], g_CamTranslation[0], g_CamTranslation[1], g_CamTranslation[2], 0, 1, 0);
 	}
 
-	
-
-
+	// culling setup (NOT WORKING?)
 	glEnable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	if (g_PerformBFCulling) 
+	{
+		glFrontFace(GL_CW);
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+	}
+	else
+		glDisable(GL_CULL_FACE);
 	glEnable(GL_NORMALIZE);
 
 	// Set light
@@ -136,19 +141,11 @@ void Display(void)
 
 	// Rotate and draw shape
 	glPushMatrix();
-	//glTranslatef(0.5f, -0.3f, 0.0f);
-	/*if (g_AutoRotate)
-	{
-		float axis[3] = { 0, 1, 0 };
-		float angle = (float)(GetTimeMs() - g_RotateTime) / 1000.0f;
-		float quat[4];
-		SetQuaternionFromAxisAngle(axis, angle, quat);
-		MultiplyQuaternions(g_RotateStart, quat, g_Rotation);
-	}
-	ConvertQuaternionToMatrix(g_Rotation, mat);*/
-	//glMultMatrixf(mat);
 	glScalef(g_Zoom, g_Zoom, g_Zoom);
-	glutSolidTeapot(1.0);
+	if (g_CurrentShading == SHADING_SOLID)
+		glutSolidTeapot(1.0);
+	else
+		glutWireTeapot(1.0);
 	glPopMatrix();
 
 	// Draw tweak bars
@@ -183,41 +180,39 @@ void Reshape(int width, int height)
 // Function called at exit
 void Terminate(void)
 {
-	glDeleteLists(SHAPE_TEAPOT, NUM_SHAPES);
-
 	TwTerminate();
 }
 
-
-//  Callback function called when the 'AutoRotate' variable value of the tweak bar has changed
-void TW_CALL SetAutoRotateCB(const void *value, void *clientData)
+//  Callback function called when the 'LookAtObject' variable value of the tweak bar has changed
+void TW_CALL SetLookAtObjectCB(const void *value, void *clientData)
 {
 	(void)clientData; // unused
 
-	g_AutoRotate = *(const int *)value; // copy value to g_AutoRotate
-	if (g_AutoRotate != 0)
-	{
-		// init rotation
-		g_RotateTime = GetTimeMs();
-		g_RotateStart[0] = g_Rotation[0];
-		g_RotateStart[1] = g_Rotation[1];
-		g_RotateStart[2] = g_Rotation[2];
-		g_RotateStart[3] = g_Rotation[3];
-
-		// make Rotation variable read-only
-		TwDefine(" TweakBar/ObjRotation readonly ");
-	}
-	else
-		// make Rotation variable read-write
-		TwDefine(" TweakBar/ObjRotation readwrite ");
+	g_LookAtObject = *(const int *)value; // copy value to LookAtObject
 }
 
 
-//  Callback function called by the tweak bar to get the 'AutoRotate' value
-void TW_CALL GetAutoRotateCB(void *value, void *clientData)
+//  Callback function called by the tweak bar to get the 'LookAtObject' value
+void TW_CALL GetLookAtObjectCB(void *value, void *clientData)
 {
 	(void)clientData; // unused
-	*(int *)value = g_AutoRotate; // copy g_AutoRotate to value
+	*(int *)value = g_LookAtObject; // copy LookAtObject to value
+}
+
+//  Callback function called when the 'BFCulling' variable value of the tweak bar has changed
+void TW_CALL SetBFCullingCB(const void *value, void *clientData)
+{
+	(void)clientData; // unused
+
+	g_PerformBFCulling = *(const int *)value; // copy value to g_PerformBFCulling
+}
+
+
+//  Callback function called by the tweak bar to get the 'BFCulling' value
+void TW_CALL GetBFCullingCB(void *value, void *clientData)
+{
+	(void)clientData; // unused
+	*(int *)value = g_PerformBFCulling; // copy g_PerformBFCulling to value
 }
 
 
@@ -258,17 +253,6 @@ int main(int argc, char *argv[])
 	//   required because the GLUT key event functions do not report key modifiers states.
 	TwGLUTModifiersFunc(glutGetModifiers);
 
-	// Create some 3D objects (stored in display lists)
-	glNewList(SHAPE_TEAPOT, GL_COMPILE);
-	glutSolidTeapot(1.0);
-	glEndList();
-	glNewList(SHAPE_TORUS, GL_COMPILE);
-	glutSolidTorus(0.3, 1.0, 16, 32);
-	glEndList();
-	glNewList(SHAPE_CONE, GL_COMPILE);
-	glutSolidCone(1.0, 1.5, 64, 4);
-	glEndList();
-
 	// Create a tweak bar
 	bar = TwNewBar("Assignment 1");
 	TwDefine(" GLOBAL help='This example shows how to integrate AntTweakBar with GLUT and OpenGL.' "); // Message added to the help bar.
@@ -287,7 +271,7 @@ int main(int argc, char *argv[])
 		" label='Camera Rotation' opened=true help='Rotate camera along u v or n.' ");
 
 	// Look at object?
-	TwAddVarCB(bar, "LookAtObject", TW_TYPE_BOOL32, SetAutoRotateCB, GetAutoRotateCB, NULL,
+	TwAddVarCB(bar, "LookAtObject", TW_TYPE_BOOL32, SetLookAtObjectCB, GetLookAtObjectCB, NULL,
 		" label='Look at object' key=space help='Toggle look at object.' ");
 	
 	//separates cam variables from the rest
@@ -329,7 +313,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Back Face Culling?
-	TwAddVarCB(bar, "BFCulling", TW_TYPE_BOOL32, SetAutoRotateCB, GetAutoRotateCB, NULL,
+	TwAddVarCB(bar, "BFCulling", TW_TYPE_BOOL32, SetBFCullingCB, GetBFCullingCB, NULL,
 		" label='Back Face Culling' key=enter help='Toggle back face culling.' ");
 
 	// Add 'g_MatAmbient' to 'bar': this is a variable of type TW_TYPE_COLOR3F (3 floats color, alpha is ignored)
@@ -341,13 +325,6 @@ int main(int argc, char *argv[])
 	TwAddVarRW(bar, "Diffuse", TW_TYPE_COLOR3F, &g_MatDiffuse, " group='Material' ");
 
 	// load .obj file
-
-
-	// Store time
-	g_RotateTime = GetTimeMs();
-	// Init rotation
-	//SetQuaternionFromAxisAngle(axis, angle, g_Rotation);
-	//SetQuaternionFromAxisAngle(axis, angle, g_RotateStart);
 
 	// Call the GLUT main loop
 	glutMainLoop();
