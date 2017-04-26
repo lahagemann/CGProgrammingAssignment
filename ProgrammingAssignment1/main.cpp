@@ -1,18 +1,3 @@
-//  ---------------------------------------------------------------------------
-//
-//  @file       TwSimpleGLUT.c
-//  @brief      A simple example that uses AntTweakBar with OpenGL and GLUT.
-//
-//              AntTweakBar: http://anttweakbar.sourceforge.net/doc
-//              OpenGL:      http://www.opengl.org
-//              GLUT:        http://opengl.org/resources/libraries/glut
-//  
-//  @author     Philippe Decaudin
-//  @date       2006/05/20
-//
-//  ---------------------------------------------------------------------------
-
-
 #include <AntTweakBar.h>
 
 #include <Windows.h>
@@ -21,6 +6,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+
+#include "Model.h"
 
 // TWEAKABLE PARAMETERS
 // Camera Position
@@ -33,12 +20,12 @@ float g_CamTranslation[] = { 0.0f, 0.0f, 0.0f };
 float g_CamRotation[] = { 0.0f, 0.0f, 0.0f };
 
 // Clipping Plane
-float g_ZFar = 100.0f;
+float g_ZFar = 1000.0f;
 float g_ZNear = 1.0f;
 
 // Field of View
-float g_FOVX = 0.0f;
-float g_FOVY = 40.0f;
+float g_FOVX = 128.0f;
+float g_FOVY = 72.0f;
 
 // Material Color
 //float g_MatAmbient[] = { 0.5f, 0.0f, 0.0f, 1.0f };
@@ -60,6 +47,7 @@ char* filename;
 int width = 1280;
 int height = 720;
 
+Model m;
 
 float g_Zoom = 1.0f;
 // Shapes material
@@ -69,15 +57,25 @@ float g_MatDiffuse[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 float g_LightMultiplier = 1.0f;
 float g_LightDirection[] = { -0.57735f, -0.57735f, -0.57735f };
 
-// Return elapsed time in milliseconds
-int GetTimeMs()
+
+//Draw model
+void Draw(Model m)
 {
-#if !defined(_WIN32)
-	return glutGet(GLUT_ELAPSED_TIME);
-#else
-	// glutGet(GLUT_ELAPSED_TIME) seems buggy on Windows
-	return (int)GetTickCount();
-#endif
+	if (g_CurrentShading == SHADING_SOLID) 
+	{
+		for (int i = 0; i < m.numTriangles; i++)
+		{
+			glColor3i(m.triangles[i].color.r, m.triangles[i].color.g, m.triangles[i].color.b);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			glBegin(GL_TRIANGLES);
+			glVertex3f(m.triangles[i].v0.x, m.triangles[i].v0.y, m.triangles[i].v0.z);
+			glVertex3f(m.triangles[i].v1.x, m.triangles[i].v1.y, m.triangles[i].v1.z);
+			glVertex3f(m.triangles[i].v2.x, m.triangles[i].v2.y, m.triangles[i].v2.z);
+			glNormal3f(m.triangles[i].face_normal.x, m.triangles[i].face_normal.y, m.triangles[i].face_normal.z);
+			glEnd();
+		}
+	}
+	return;
 }
 
 
@@ -94,7 +92,7 @@ void Display(void)
 	glViewport(0, 0, width, height);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(g_FOVY, (double)width / height, g_ZNear, g_ZFar);
+	gluPerspective(g_FOVY, (double)g_FOVX / g_FOVY, g_ZNear, g_ZFar);
 
 	// camera setup
 	if (g_LookAtObject)
@@ -142,10 +140,13 @@ void Display(void)
 	// Rotate and draw shape
 	glPushMatrix();
 	glScalef(g_Zoom, g_Zoom, g_Zoom);
-	if (g_CurrentShading == SHADING_SOLID)
-		glutSolidTeapot(1.0);
-	else
-		glutWireTeapot(1.0);
+	//if (g_CurrentShading == SHADING_SOLID)
+	//	glutSolidTeapot(1.0);
+	//else
+	//	glutWireTeapot(1.0);
+	Draw(m);
+	glTranslatef(-1.0f, 0.0f, 0.0f);
+
 	glPopMatrix();
 
 	// Draw tweak bars
@@ -223,6 +224,8 @@ int main(int argc, char *argv[])
 	float axis[] = { 0.7f, 0.7f, 0.0f }; // initial model rotation
 	float angle = 0.8f;
 
+	m = Model("cow_up.in");
+
 	// Initialize GLUT
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
@@ -273,10 +276,6 @@ int main(int argc, char *argv[])
 	// Look at object?
 	TwAddVarCB(bar, "LookAtObject", TW_TYPE_BOOL32, SetLookAtObjectCB, GetLookAtObjectCB, NULL,
 		" label='Look at object' key=space help='Toggle look at object.' ");
-	
-	//separates cam variables from the rest
-	TwAddSeparator(bar, "sep1", NULL);
-	TwDefine(" barName/sep1 group='Camera' ");
 
 	// clipping plane
 	// z far
@@ -289,15 +288,11 @@ int main(int argc, char *argv[])
 
 	// fov x
 	TwAddVarRW(bar, "FOV x", TW_TYPE_FLOAT, &g_FOVX,
-		" min=0.0 max=100.0 step=0.5 keyIncr=f keyDecr=F help='Rotate camera along z axis ' ");
+		" min=0.0 max=500.0 step=0.5 keyIncr=f keyDecr=F help='Rotate camera along z axis ' ");
 
 	// fov y
 	TwAddVarRW(bar, "FOV y", TW_TYPE_FLOAT, &g_FOVY,
-		" min=0.0 max=100.0 step=0.5 keyIncr=n keyDecr=N help='Rotate camera along z axis ' ");
-
-	//separates viewing variables from the rest
-	TwAddSeparator(bar, "sep2", NULL);
-	TwDefine(" barName/sep2 group='Viewing' ");
+		" min=0.0 max=500.0 step=0.5 keyIncr=n keyDecr=N help='Rotate camera along z axis ' ");
 
 	// object/model variables
 
