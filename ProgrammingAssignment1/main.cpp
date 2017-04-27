@@ -20,7 +20,7 @@ float g_CamTranslation[] = { 0.0f, 0.0f, 0.0f };
 float g_CamRotation[] = { 0.0f, 0.0f, 0.0f };
 
 // Clipping Plane
-float g_ZFar = 1000.0f;
+float g_ZFar = 2000.0f;
 float g_ZNear = 1.0f;
 
 // Field of View
@@ -28,8 +28,12 @@ float g_FOVX = 128.0f;
 float g_FOVY = 72.0f;
 
 // Material Color
-//float g_MatAmbient[] = { 0.5f, 0.0f, 0.0f, 1.0f };
-//float g_MatDiffuse[] = { 1.0f, 1.0f, 0.0f, 1.0f };
+float g_MatAmbient[] = { 0.5f, 0.0f, 0.0f, 1.0f };
+float g_MatDiffuse[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+
+// Light parameter
+float g_LightMultiplier = 1.0f;
+float g_LightDirection[] = { 1.1547f, -1.1547f, 1.1547f };
 
 // Booleans
 int g_LookAtObject = 1;
@@ -41,21 +45,23 @@ typedef enum { SHADING_POINTS = 1, SHADING_WIRE, SHADING_SOLID } Shading;
 #define NUM_SHADING 3
 Shading g_CurrentShading = SHADING_SOLID;
 
-char* filename;
+char filename[256] = "cow_up.in";
 
 // other variables
 int width = 1280;
 int height = 720;
-
 Model m;
 
+// CAMERA AXIS
+float u[] = { 0.0f, 0.0f, 0.0f };
+float v[] = { 0.0f, 0.0f, 0.0f };
+float n[] = { 0.0f, 0.0f, 0.0f };
+
+// OBJECT CENTER IN WCS
+float obj_center[] = { 0.0f, 0.0f, 0.0f };
+
 float g_Zoom = 1.0f;
-// Shapes material
-float g_MatAmbient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-float g_MatDiffuse[] = { 1.0f, 0.0f, 0.0f, 1.0f };
-// Light parameter
-float g_LightMultiplier = 1.0f;
-float g_LightDirection[] = { -0.57735f, -0.57735f, -0.57735f };
+
 
 
 //Draw model
@@ -65,17 +71,64 @@ void Draw(Model m)
 	{
 		for (int i = 0; i < m.numTriangles; i++)
 		{
-			glColor3i(m.triangles[i].color.r, m.triangles[i].color.g, m.triangles[i].color.b);
+			glColor4f(g_MatDiffuse[0], g_MatDiffuse[1], g_MatDiffuse[2], g_MatDiffuse[3]);
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			glBegin(GL_TRIANGLES);
+			glNormal3f(m.triangles[i].normal[0].x, m.triangles[i].normal[0].y, m.triangles[i].normal[0].z);
 			glVertex3f(m.triangles[i].v0.x, m.triangles[i].v0.y, m.triangles[i].v0.z);
+			glNormal3f(m.triangles[i].normal[1].x, m.triangles[i].normal[1].y, m.triangles[i].normal[1].z);
 			glVertex3f(m.triangles[i].v1.x, m.triangles[i].v1.y, m.triangles[i].v1.z);
+			glNormal3f(m.triangles[i].normal[2].x, m.triangles[i].normal[2].y, m.triangles[i].normal[2].z);
+			glVertex3f(m.triangles[i].v2.x, m.triangles[i].v2.y, m.triangles[i].v2.z);			
+			glEnd();
+		}
+	}
+	else if (g_CurrentShading == SHADING_WIRE)
+	{
+		for (int i = 0; i < m.numTriangles; i++)
+		{
+			glColor4f(g_MatDiffuse[0], g_MatDiffuse[1], g_MatDiffuse[2], g_MatDiffuse[3]);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			glBegin(GL_TRIANGLES);
+			glNormal3f(m.triangles[i].normal[0].x, m.triangles[i].normal[0].y, m.triangles[i].normal[0].z);
+			glVertex3f(m.triangles[i].v0.x, m.triangles[i].v0.y, m.triangles[i].v0.z);
+			glNormal3f(m.triangles[i].normal[1].x, m.triangles[i].normal[1].y, m.triangles[i].normal[1].z);
+			glVertex3f(m.triangles[i].v1.x, m.triangles[i].v1.y, m.triangles[i].v1.z);
+			glNormal3f(m.triangles[i].normal[2].x, m.triangles[i].normal[2].y, m.triangles[i].normal[2].z);
 			glVertex3f(m.triangles[i].v2.x, m.triangles[i].v2.y, m.triangles[i].v2.z);
-			glNormal3f(m.triangles[i].face_normal.x, m.triangles[i].face_normal.y, m.triangles[i].face_normal.z);
+			glEnd();
+		}
+	}
+	else 
+	{
+		for (int i = 0; i < m.numTriangles; i++)
+		{
+			glColor4f(g_MatDiffuse[0], g_MatDiffuse[1], g_MatDiffuse[2], g_MatDiffuse[3]);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			glBegin(GL_POINTS);
+			glNormal3f(m.triangles[i].normal[0].x, m.triangles[i].normal[0].y, m.triangles[i].normal[0].z);
+			glVertex3f(m.triangles[i].v0.x, m.triangles[i].v0.y, m.triangles[i].v0.z);
+			glNormal3f(m.triangles[i].normal[1].x, m.triangles[i].normal[1].y, m.triangles[i].normal[1].z);
+			glVertex3f(m.triangles[i].v1.x, m.triangles[i].v1.y, m.triangles[i].v1.z);
+			glNormal3f(m.triangles[i].normal[2].x, m.triangles[i].normal[2].y, m.triangles[i].normal[2].z);
+			glVertex3f(m.triangles[i].v2.x, m.triangles[i].v2.y, m.triangles[i].v2.z);
 			glEnd();
 		}
 	}
 	return;
+}
+
+void set_camera_position_auto()
+{
+	obj_center[0] = (m.max.x + m.min.x) / 2;
+	obj_center[1] = (m.max.y + m.min.y) / 2;
+	obj_center[2] = (m.max.z + m.min.z) / 2;
+
+	//x = center x?
+	//g_CamPosition[0] = c[0];
+	// z = center x + half / 0.5774 if tan 30 -> no, z = center x + half  if tan 45 -> works better
+	g_CamPosition[2] = (obj_center[0] + (m.max.x - m.min.x) / 2);
+
 }
 
 
@@ -100,14 +153,15 @@ void Display(void)
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
 		gluLookAt(g_CamPosition[0] + g_CamTranslation[0], g_CamPosition[1] + g_CamTranslation[1],
-			g_CamPosition[2] + g_CamTranslation[2], 0, 0, 0, 0, 1, 0);
+			g_CamPosition[2] + g_CamTranslation[2], obj_center[0], obj_center[1], obj_center[2], 0, 1, 0);
 	}
 	else
 	{
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
-		gluLookAt(g_CamPosition[0] + g_CamTranslation[0], g_CamPosition[1] + g_CamTranslation[1],
-			g_CamPosition[2] + g_CamTranslation[2], g_CamTranslation[0], g_CamTranslation[1], g_CamTranslation[2], 0, 1, 0);
+		gluLookAt(g_CamPosition[0] + g_CamTranslation[0], g_CamPosition[1] + g_CamTranslation[1], g_CamPosition[2] + g_CamTranslation[2], 
+			obj_center[0] + g_CamTranslation[0], obj_center[1] + g_CamTranslation[1], obj_center[2] + g_CamTranslation[2], 
+			0, 1, 0);
 	}
 
 	// culling setup (NOT WORKING?)
@@ -145,8 +199,6 @@ void Display(void)
 	//else
 	//	glutWireTeapot(1.0);
 	Draw(m);
-	glTranslatef(-1.0f, 0.0f, 0.0f);
-
 	glPopMatrix();
 
 	// Draw tweak bars
@@ -216,6 +268,24 @@ void TW_CALL GetBFCullingCB(void *value, void *clientData)
 	*(int *)value = g_PerformBFCulling; // copy g_PerformBFCulling to value
 }
 
+void TW_CALL ResetCam(void * /*clientData*/)
+{
+	set_camera_position_auto();
+
+	g_CamTranslation[0] = 0.0f;
+	g_CamTranslation[1] = 0.0f;
+	g_CamTranslation[2] = 0.0f;
+
+	g_CamRotation[0] = 0.0f;
+	g_CamRotation[1] = 0.0f;
+	g_CamRotation[2] = 0.0f;
+}
+
+void TW_CALL LoadModel(void * /*clientData*/)
+{
+	m = Model(filename);
+	set_camera_position_auto();
+}
 
 // Main
 int main(int argc, char *argv[])
@@ -224,7 +294,8 @@ int main(int argc, char *argv[])
 	float axis[] = { 0.7f, 0.7f, 0.0f }; // initial model rotation
 	float angle = 0.8f;
 
-	m = Model("cow_up.in");
+	m = Model(filename);
+	set_camera_position_auto();
 
 	// Initialize GLUT
 	glutInit(&argc, argv);
@@ -276,11 +347,13 @@ int main(int argc, char *argv[])
 	// Look at object?
 	TwAddVarCB(bar, "LookAtObject", TW_TYPE_BOOL32, SetLookAtObjectCB, GetLookAtObjectCB, NULL,
 		" label='Look at object' key=space help='Toggle look at object.' ");
+	// ...
+	TwAddButton(bar, "Reset", ResetCam, NULL, " label='Reset' ");
 
 	// clipping plane
 	// z far
 	TwAddVarRW(bar, "Z Far", TW_TYPE_FLOAT, &g_ZFar,
-		" min=0.0 max=100.0 step=0.5 keyIncr=f keyDecr=F help='Rotate camera along z axis ' ");
+		" min=0.0 max=4000.0 step=0.5 keyIncr=f keyDecr=F help='Rotate camera along z axis ' ");
 
 	// z near
 	TwAddVarRW(bar, "Z Near", TW_TYPE_FLOAT, &g_ZNear,
@@ -320,6 +393,10 @@ int main(int argc, char *argv[])
 	TwAddVarRW(bar, "Diffuse", TW_TYPE_COLOR3F, &g_MatDiffuse, " group='Material' ");
 
 	// load .obj file
+	TwAddVarRW(bar, "Filename", TW_TYPE_CSSTRING(sizeof(filename)), filename, " label='file' group=CDString help='type file name.' ");
+
+	// ...
+	TwAddButton(bar, "Load", LoadModel, NULL, " label='Load Model' ");
 
 	// Call the GLUT main loop
 	glutMainLoop();

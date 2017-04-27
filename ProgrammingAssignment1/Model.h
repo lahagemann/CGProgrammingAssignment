@@ -28,6 +28,12 @@ public:
 		float z;
 	};
 
+	typedef struct Vector3f {
+		float x;
+		float y;
+		float z;
+	};
+
 	typedef struct Color {
 		int r;
 		int g;
@@ -45,6 +51,9 @@ public:
 
 	std::vector<Triangle> triangles;
 	int numTriangles;
+	Vector3f min;
+	Vector3f max;
+
 
 };
 

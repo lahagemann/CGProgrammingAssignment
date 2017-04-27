@@ -3,13 +3,18 @@
 
 Model::Model()
 {
-	load("cow_up.in");
+	//load("cow_up.in");
+	//mostNegativeX = INT_MAX;
+	//mostPositiveX = INT_MIN;
+	//minpoint = { 10000.0f, 10000.0f, 10000.0f };
+	//maxpoint = { -10000.0f, -10000.0f, -10000.0f };
 }
 
 Model::Model(char *Filename)
 {
 	load(Filename);
-	print();
+	
+	//print();
 }
 
 
@@ -19,6 +24,10 @@ Model::~Model()
 
 void Model::load(char *FileName)
 {
+	//double cx = 0.0, cy = 0.0, cz = 0.0;
+	Vector3f minpoint = { 10000.0f, 10000.0f, 10000.0f };
+	Vector3f maxpoint = { -10000.0f, -10000.0f, -10000.0f };
+
 	Vertex ambient[3], diffuse[3], specular[3];
 	float shine[3];
 	int material_count, color_index[3], i;
@@ -66,6 +75,28 @@ void Model::load(char *FileName)
 		fscanf(fp, "face normal %f %f %f\n", &(Tris.face_normal.x), &(Tris.face_normal.y),
 			&(Tris.face_normal.z));
 		//
+
+		if (Tris.v0.x < minpoint.x) { minpoint.x = Tris.v0.x; }
+		if (Tris.v0.y < minpoint.y) { minpoint.y = Tris.v0.y; }
+		if (Tris.v0.z < minpoint.z) { minpoint.z = Tris.v0.z; }
+		if (Tris.v0.x > maxpoint.x) { maxpoint.x = Tris.v0.x; }
+		if (Tris.v0.y > maxpoint.y) { maxpoint.y = Tris.v0.y; }
+		if (Tris.v0.z > maxpoint.z) { maxpoint.z = Tris.v0.z; }
+
+		if (Tris.v1.x < minpoint.x) { minpoint.x = Tris.v1.x; }
+		if (Tris.v1.y < minpoint.y) { minpoint.y = Tris.v1.y; }
+		if (Tris.v1.z < minpoint.z) { minpoint.z = Tris.v1.z; }
+		if (Tris.v1.x > maxpoint.x) { maxpoint.x = Tris.v1.x; }
+		if (Tris.v1.y > maxpoint.y) { maxpoint.y = Tris.v1.y; }
+		if (Tris.v1.z > maxpoint.z) { maxpoint.z = Tris.v1.z; }
+		
+		if (Tris.v2.x < minpoint.x) { minpoint.x = Tris.v2.x; }
+		if (Tris.v2.y < minpoint.y) { minpoint.y = Tris.v2.y; }
+		if (Tris.v2.z < minpoint.z) { minpoint.z = Tris.v2.z; }
+		if (Tris.v2.x > maxpoint.x) { maxpoint.x = Tris.v2.x; }
+		if (Tris.v2.y > maxpoint.y) { maxpoint.y = Tris.v2.y; }
+		if (Tris.v2.z > maxpoint.z) { maxpoint.z = Tris.v2.z; }
+
 		Tris.color.r = (unsigned char)(int)(255 * (diffuse[color_index[0]].x));
 		Tris.color.g = (unsigned char)(int)(255 * (diffuse[color_index[0]].y));
 		Tris.color.b = (unsigned char)(int)(255 * (diffuse[color_index[0]].z));
@@ -73,6 +104,12 @@ void Model::load(char *FileName)
 		triangles.push_back(Tris);
 	}
 	fclose(fp);
+
+	printf("minpoint: %f %f %f\n", minpoint.x, minpoint.y, minpoint.z);
+	printf("maxpoint: %f %f %f\n", maxpoint.x, maxpoint.y, maxpoint.z);
+
+	min = minpoint;
+	max = maxpoint;
 }
 
 void Model::print() 
